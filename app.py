@@ -4,14 +4,15 @@ import sqlite3
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Dashboard de Sismos Chile", layout="wide")
+st.set_page_config(page_title="Dashboard de Sismos Chile (2012-2025)", layout="wide")
 
-st.title("🌋 Dashboard Analítico de Sismología en Chile")
+st.title("🌋 Dashboard Analítico de Sismología en Chile (2012 - 2025)")
 st.markdown("Solución conectada al repositorio analítico **SQLite** construida desde la canalización ETL.")
 
 db_path = os.path.join("data", "processed", "sismos_analitico.db")
 
-@st.cache_data
+# Cache con expiración de 60 segundos para Sincronización Automática
+@st.cache_data(ttl=60)
 def cargar_datos(query):
     conn = sqlite3.connect(db_path)
     df = pd.read_sql_query(query, conn)
@@ -34,7 +35,7 @@ if os.path.exists(db_path):
         step=0.1
     )
 
-    # 2. Filtro de Rango de Años
+    # 2. Filtro de Rango de Años (Histórico 2012-2025)
     min_anio = int(df_sismos['año'].min())
     max_anio = int(df_sismos['año'].max())
     rango_anio = st.sidebar.slider(
