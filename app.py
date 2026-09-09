@@ -122,15 +122,28 @@ if os.path.exists(db_path):
             magnitud_maxima=('magnitude', 'max')
         ).reset_index().sort_values(by="total_sismos", ascending=True)
 
+        # Crear columna limpia con solo el nombre de la región sin el número 'X.-'
+        df_resumen_reg_fil['region_limpia'] = df_resumen_reg_fil['region'].apply(
+            lambda x: x.split(".- ")[1] if ".- " in x else x
+        )
+
         fig_region = px.bar(
             df_resumen_reg_fil,
             x="total_sismos",
-            y="region",
+            y="region_limpia",
             orientation="h",
             color="total_sismos",
             color_continuous_scale=px.colors.sequential.Reds,
             title="Total de Eventos Registrados por Zonas/Regiones",
-            labels={"total_sismos": "Frecuencia de Sismos", "region": "Región / Zona"}
+            labels={"total_sismos": "Frecuencia de Sismos", "region_limpia": "Región / Zona"}
+        )
+        
+        # Ajuste de ticks en la barra de color (pasos de 200)
+        fig_region.update_layout(
+            coloraxis_colorbar=dict(
+                title="Frecuencia de Sismos",
+                dtick=200
+            )
         )
         st.plotly_chart(fig_region, use_container_width=True)
 
@@ -142,7 +155,6 @@ if os.path.exists(db_path):
             magnitud_promedio=('magnitude', 'mean')
         ).reset_index()
 
-        # Convertir año a string para evitar leyenda en forma de barra continua
         df_resumen_mes_fil['año_str'] = df_resumen_mes_fil['año'].astype(str)
 
         nombres_meses = {
@@ -183,7 +195,7 @@ if os.path.exists(db_path):
 
         st.divider()
 
-        # Fila 2: Magnitud Promedio por Mes (Agrupadas lado a lado)
+        # Fila 2: Magnitud Promedio por Mes
         fig_barras = px.bar(
             df_resumen_mes_fil,
             x="nombre_mes",
