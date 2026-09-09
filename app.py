@@ -70,9 +70,9 @@ if os.path.exists(db_path):
 
     st.title(f"🌋 Dashboard Analítico de Sismología en Chile {texto_anios}")
     
-    # Bajada informativa con filtros activos
+    # Bajada informativa simplificada (sin la palabra "Región")
     st.caption(
-        f"📍 **Región:** {region_sel} | "
+        f"📍 **{region_sel}** | "
         f"⚡ **Magnitud:** {rango_magnitud[0]:.1f} - {rango_magnitud[1]:.1f} Richter | "
         f"💾 **Fuente:** Repositorio SQLite"
     )
