@@ -94,11 +94,8 @@ def ejecutar_etl():
     total_limpio = len(df_clean)
     logging.info(f"   [Calidad - Resumen] Total de registros aprobados y limpios para procesamiento: {total_limpio} (de {total_inicial} originales)")
 
-    # Conversión temporal y simulación a 2026
+    # Conversión temporal manteniendo fechas históricas originales
     df_clean['datetime'] = pd.to_datetime(df_clean['datetime'])
-    max_year = df_clean['datetime'].dt.year.max()
-    desfase_anos = 2026 - max_year
-    df_clean['datetime'] = df_clean['datetime'] + pd.DateOffset(years=desfase_anos)
 
     # Ingeniería de Características
     df_clean['año'] = df_clean['datetime'].dt.year
