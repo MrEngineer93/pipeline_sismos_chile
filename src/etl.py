@@ -2,8 +2,14 @@ import pandas as pd
 import sqlite3
 import os
 import logging
+import time
 
-# Configuración de Logging con formato de marca de tiempo (Fecha y Hora)
+# Forzar zona horaria de Chile (America/Santiago) para las marcas de tiempo
+os.environ['TZ'] = 'America/Santiago'
+if hasattr(time, 'tzset'):
+    time.tzset()
+
+# Configuración de Logging con formato de marca de tiempo en hora local
 log_dir = os.path.join("data", "processed")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "etl_execution.log")
@@ -13,7 +19,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(log_file, mode='a', encoding="utf-8"), # 'a' acumula registros con marca de tiempo
+        logging.FileHandler(log_file, mode='a', encoding="utf-8"),
         logging.StreamHandler()
     ]
 )
@@ -75,8 +81,6 @@ def ejecutar_etl():
     logging.info(f"   [Calidad - Duplicados] Registros duplicados eliminados: {descartados_duplicados}")
 
     # Control de Calidad 3: Validaciones de rango geográfico y físico (Reglas de Negocio)
-    # Coordenadas válidas para Chile aproximadamente: Latitud [-56, -17], Longitud [-76, -66]
-    # Magnitudes plausibles [0, 10], Profundidades positivas [0, 800]
     filas_antes_rangos = len(df_clean)
     df_clean = df_clean[
         (df_clean['latitude'].between(-57.0, -17.0)) &
