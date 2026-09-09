@@ -1,100 +1,130 @@
-import os
-import sqlite3
 import pandas as pd
+import sqlite3
+import os
 import logging
+import time
+
+# Forzar zona horaria de Chile (America/Santiago)
+os.environ['TZ'] = 'America/Santiago'
+if hasattr(time, 'tzset'):
+    time.tzset()
 
 # Configuración de Logging
-log_dir = os.path.join("logs")
+log_dir = os.path.join("data", "processed")
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "pipeline_etl.log")
+log_file = os.path.join(log_dir, "etl_execution.log")
 
 logging.basicConfig(
-    filename=log_file,
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(log_file, mode='a', encoding="utf-8"),
+        logging.StreamHandler()
+    ]
 )
 
-def run_etl():
-    logging.info("=" * 60)
+def asignar_region(lat):
+    if lat >= -18.5: return "1.- Arica y Parinacota"
+    elif lat >= -21.5: return "2.- Tarapacá"
+    elif lat >= -26.0: return "3.- Antofagasta"
+    elif lat >= -29.0: return "4.- Atacama"
+    elif lat >= -32.2: return "5.- Coquimbo"
+    elif lat >= -33.9: return "6.- Valparaíso / RM"
+    elif lat >= -35.0: return "7.- O'Higgins"
+    elif lat >= -36.5: return "8.- Maule"
+    elif lat >= -38.5: return "9.- Ñuble / Bío Bío"
+    elif lat >= -40.5: return "10.- Araucanía / Los Ríos"
+    elif lat >= -44.0: return "11.- Los Lagos"
+    elif lat >= -48.0: return "12.- Aysén"
+    else: return "13.- Magallanes y Antártica"
+
+def ejecutar_etl():
+    logging.info("==========================================================")
     logging.info("=== INICIO DE EJECUCIÓN DEL PIPELINE ETL ===")
     
-    # -------------------------------------------------------------
-    # 1. INGESTA
-    # -------------------------------------------------------------
-    csv_path = os.path.join("data", "raw", "earthquakes_chile.csv")
-    logging.info(f"1. [Ingesta] Extrayendo datos desde: '{csv_path}'")
+    csv_filename = "earthquakes_chile.csv"
+    raw_path = os.path.join("data", "raw", csv_filename)
+    logging.info(f"1. [Ingesta] Extrayendo datos desde: '{raw_path}'")
     
-    if not os.path.exists(csv_path):
-        logging.error(f"Error crítico: El archivo '{csv_path}' no existe.")
-        return
+    if not os.path.exists(raw_path):
+        err_msg = f"No se encontró el archivo de origen: {raw_path}"
+        logging.error(err_msg)
+        raise FileNotFoundError(err_msg)
 
-    df_raw = pd.read_csv(csv_path)
-    registros_iniciales = len(df_raw)
-    logging.info(f"   [Ingesta] Registros iniciales leídos: {registros_iniciales}")
+    df_raw = pd.read_csv(raw_path)
+    total_inicial = len(df_raw)
+    logging.info(f"   [Ingesta] Registros iniciales leídos: {total_inicial}")
 
-    # -------------------------------------------------------------
-    # 2. TRANSFORMACIÓN & CALIDAD DE DATOS
-    # -------------------------------------------------------------
     logging.info("2. [Transformación] Estandarizando variables y aplicando controles de calidad...")
+    renombres = {
+        'Date(UTC)': 'datetime',
+        'Latitude': 'latitude',
+        'Longitude': 'longitude',
+        'Depth': 'depth',
+        'Magnitude': 'magnitude'
+    }
+    df_clean = df_raw.rename(columns=renombres).copy()
+
+    # Controles de Calidad
+    columnas_clave = ['latitude', 'longitude', 'magnitude', 'depth', 'datetime']
+    nulos = df_clean[columnas_clave].isnull().sum().sum()
+    df_clean = df_clean.dropna(subset=columnas_clave)
     
-    # Copia de trabajo
-    df = df_raw.copy()
+    duplicados = df_clean.duplicated(subset=columnas_clave).sum()
+    df_clean = df_clean.drop_duplicates(subset=columnas_clave)
 
-    # Normalización de nombres de columnas
-    df.columns = df.columns.str.strip().str.lower()
+    # Filtrado por rangos válidos
+    df_clean = df_clean[
+        (df_clean['latitude'].between(-57.0, -17.0)) &
+        (df_clean['longitude'].between(-80.0, -60.0)) &
+        (df_clean['magnitude'].between(0.0, 10.0)) &
+        (df_clean['depth'] >= 0.0)
+    ]
+    total_final = len(df_clean)
+    descartados = total_inicial - total_final
 
-    # Conversión de tipos de datos
-    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
-    df['magnitude'] = pd.to_numeric(df['magnitude'], errors='coerce')
-    df['depth'] = pd.to_numeric(df['depth'], errors='coerce')
-    df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
-    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
+    logging.info(f"   [Calidad de Datos] Nulos eliminados: {nulos}")
+    logging.info(f"   [Calidad de Datos] Duplicados eliminados: {duplicados}")
+    logging.info(f"   [Calidad de Datos] Registros totales descartados: {descartados}")
+    logging.info(f"   [Calidad de Datos] Registros válidos procesados: {total_final}")
 
-    # Controles de calidad y filtrado
-    nulos_iniciales = df.isnull().sum().sum()
-    df_clean = df.dropna(subset=['datetime', 'magnitude', 'latitude', 'longitude']).copy()
-    nulos_eliminados = registros_iniciales - len(df_clean)
-
-    # Eliminación de duplicados
-    duplicados_cantidad = df_clean.duplicated().sum()
-    df_clean = df_clean.drop_duplicates()
-
-    # Extracción de variables temporales para analítica
+    # Mantenimiento de fechas e Ingeniería de Características
+    df_clean['datetime'] = pd.to_datetime(df_clean['datetime'])
     df_clean['año'] = df_clean['datetime'].dt.year
     df_clean['mes'] = df_clean['datetime'].dt.month
-    df_clean['dia'] = df_clean['datetime'].dt.day
-    df_clean['hora'] = df_clean['datetime'].dt.hour
+    df_clean['fecha_corta'] = df_clean['datetime'].dt.strftime('%Y-%m-%d')
+    df_clean['region'] = df_clean['latitude'].apply(asignar_region)
 
-    registros_validos = len(df_clean)
-    registros_descartados = registros_iniciales - registros_validos
-
-    logging.info(f"   [Calidad de Datos] Nulos eliminados: {nulos_eliminados}")
-    logging.info(f"   [Calidad de Datos] Duplicados eliminados: {duplicados_cantidad}")
-    logging.info(f"   [Calidad de Datos] Registros totales descartados: {registros_descartados}")
-    logging.info(f"   [Calidad de Datos] Registros válidos procesados: {registros_validos}")
-
-    # -------------------------------------------------------------
-    # 3. CARGA (REPOSITORY SINK)
-    # -------------------------------------------------------------
-    db_dir = os.path.join("data", "processed")
-    os.makedirs(db_dir, exist_ok=True)
     db_filename = "sismos_analitico.db"
-    db_path = os.path.join(db_dir, db_filename)
-
+    db_path = os.path.join("data", "processed", db_filename)
     logging.info(f"3. [Carga] Exportando repositorio analítico hacia: '{db_path}'")
     
-    # Verificación previa para log dinámico
+    # Comprobar si la base de datos ya existe
     db_existe = os.path.exists(db_path)
     accion_db = "actualizada" if db_existe else "creada"
 
     conn = sqlite3.connect(db_path)
     df_clean.to_sql("sismos", conn, if_exists="replace", index=False)
-    conn.close()
 
+    conn.execute("""
+    CREATE VIEW IF NOT EXISTS vista_resumen_mensual AS
+    SELECT año, mes, COUNT(*) AS total_sismos, ROUND(AVG(magnitude), 2) AS magnitud_promedio, MAX(magnitude) AS magnitud_maxima, ROUND(AVG(depth), 2) AS profundidad_promedio
+    FROM sismos GROUP BY año, mes;
+    """)
+
+    conn.execute("""
+    CREATE VIEW IF NOT EXISTS vista_resumen_regional AS
+    SELECT region, COUNT(*) AS total_sismos, ROUND(AVG(magnitude), 2) AS magnitud_promedio, MAX(magnitude) AS magnitud_maxima
+    FROM sismos GROUP BY region ORDER BY total_sismos DESC;
+    """)
+
+    conn.commit()
+    conn.close()
+    
     logging.info(f"   [Carga - Idempotencia] Tabla 'sismos' {accion_db} en '{db_filename}' con reescritura segura ('if_exists=replace').")
-    logging.info(f"=== ETL COMPLETADO CON ÉXITO: Base de datos '{db_filename}' y archivo de auditoría actualizados. ===")
-    logging.info("=" * 60 + "\n")
+    logging.info("=== ETL COMPLETADO CON ÉXITO: Base de datos 'sismos_analitico.db' y archivo de auditoría actualizados. ===")
+    logging.info("==========================================================\n")
 
 if __name__ == "__main__":
-    run_etl()
+    ejecutar_etl()
