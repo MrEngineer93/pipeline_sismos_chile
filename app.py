@@ -8,7 +8,6 @@ st.set_page_config(page_title="Dashboard de Sismos Chile", layout="wide")
 
 db_path = os.path.join("data", "processed", "sismos_analitico.db")
 
-# Cache con expiración de 60 segundos para Sincronización Automática
 @st.cache_data(ttl=60)
 def cargar_datos(query):
     conn = sqlite3.connect(db_path)
@@ -44,8 +43,12 @@ if os.path.exists(db_path):
         step=1
     )
 
-    # 3. Filtro de Región
-    regiones_disponibles = ["Todas"] + sorted(list(df_sismos['region'].unique()))
+    # 3. Filtro de Región (Ordenado por número de región de Norte a Sur)
+    regiones_ordenadas = sorted(
+        list(df_sismos['region'].unique()),
+        key=lambda x: int(x.split(".-")[0]) if ".-" in x else 99
+    )
+    regiones_disponibles = ["Todas"] + regiones_ordenadas
     region_sel = st.sidebar.selectbox("Filtrar por Región:", regiones_disponibles)
 
     # --- CONSTRUCCIÓN DINÁMICA DEL TÍTULO Y SUBTÍTULO ---
