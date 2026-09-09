@@ -4,10 +4,7 @@ import sqlite3
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Dashboard de Sismos Chile (2012-2025)", layout="wide")
-
-st.title("🌋 Dashboard Analítico de Sismología en Chile (2012 - 2025)")
-st.markdown("Solución conectada al repositorio analítico **SQLite** construida desde la canalización ETL.")
+st.set_page_config(page_title="Dashboard de Sismos Chile", layout="wide")
 
 db_path = os.path.join("data", "processed", "sismos_analitico.db")
 
@@ -22,6 +19,7 @@ def cargar_datos(query):
 if os.path.exists(db_path):
     df_sismos = cargar_datos("SELECT * FROM sismos")
 
+    # --- BARRA LATERAL: FILTROS ---
     st.sidebar.header("Filtros de Análisis")
     
     # 1. Filtro de Magnitud
@@ -35,7 +33,7 @@ if os.path.exists(db_path):
         step=0.1
     )
 
-    # 2. Filtro de Rango de Años (Histórico 2012-2025)
+    # 2. Filtro de Rango de Años
     min_anio = int(df_sismos['año'].min())
     max_anio = int(df_sismos['año'].max())
     rango_anio = st.sidebar.slider(
@@ -50,7 +48,16 @@ if os.path.exists(db_path):
     regiones_disponibles = ["Todas"] + sorted(list(df_sismos['region'].unique()))
     region_sel = st.sidebar.selectbox("Filtrar por Región:", regiones_disponibles)
 
-    # Aplicar filtrado dinámico combinado
+    # --- CONSTRUCCIÓN DINÁMICA DEL TÍTULO Y SUBTÍTULO ---
+    if rango_anio[0] == rango_anio[1]:
+        texto_anios = f"({rango_anio[0]})"
+    else:
+        texto_anios = f"({rango_anio[0]} - {rango_anio[1]})"
+
+    st.title(f"🌋 Dashboard Analítico de Sismología en Chile {texto_anios}")
+    st.markdown("Solución conectada al repositorio analítico **SQLite** construida desde la canalización ETL.")
+
+    # --- FILTRADO DE DATOS ---
     df_filtrado = df_sismos[
         (df_sismos['magnitude'] >= rango_magnitud[0]) & 
         (df_sismos['magnitude'] <= rango_magnitud[1]) &
@@ -61,7 +68,7 @@ if os.path.exists(db_path):
     if region_sel != "Todas":
         df_filtrado = df_filtrado[df_filtrado['region'] == region_sel]
 
-    # Indicadores Clave
+    # --- INDICADORES CLAVE ---
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Sismos", len(df_filtrado))
     col2.metric("Magnitud Promedio", f"{df_filtrado['magnitude'].mean():.2f}" if len(df_filtrado) > 0 else "0")
@@ -70,6 +77,7 @@ if os.path.exists(db_path):
 
     st.divider()
 
+    # --- PESTAÑAS DE VISUALIZACIÓN ---
     tab1, tab2, tab3 = st.tabs(["🗺️ Mapa Geográfico", "🏛️ Distribución por Región", "📈 Tendencias Temporales"])
 
     with tab1:
