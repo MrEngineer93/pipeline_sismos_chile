@@ -70,7 +70,6 @@ if os.path.exists(db_path):
 
     st.title(f"🌋 Dashboard Analítico de Sismología en Chile {texto_anios}")
     
-    # Bajada informativa simplificada (sin la palabra "Región")
     st.caption(
         f"📍 **{region_sel}** | "
         f"⚡ **Magnitud:** {rango_magnitud[0]:.1f} - {rango_magnitud[1]:.1f} Richter | "
@@ -103,7 +102,14 @@ if os.path.exists(db_path):
             zoom=3.5,
             center={"lat": -35.6751, "lon": -71.5430},
             hover_data=["datetime", "region", "depth", "magnitude"],
+            labels={"magnitude": "Magnitud"},
             height=600
+        )
+        fig_mapa.update_layout(
+            coloraxis_colorbar=dict(
+                title="Magnitud",
+                dtick=1
+            )
         )
         st.plotly_chart(fig_mapa, use_container_width=True)
 
@@ -136,6 +142,9 @@ if os.path.exists(db_path):
             magnitud_promedio=('magnitude', 'mean')
         ).reset_index()
 
+        # Convertir año a string para evitar leyenda en forma de barra continua
+        df_resumen_mes_fil['año_str'] = df_resumen_mes_fil['año'].astype(str)
+
         nombres_meses = {
             1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 
             5: "May", 6: "Jun", 7: "Jul", 8: "Ago", 
@@ -148,10 +157,10 @@ if os.path.exists(db_path):
             df_resumen_mes_fil,
             x="nombre_mes",
             y="total_sismos",
-            color="año" if len(df_filtrado['año'].unique()) > 1 else None,
+            color="año_str" if len(df_filtrado['año'].unique()) > 1 else None,
             markers=True,
             title="Cantidad Total de Sismos por Mes",
-            labels={"nombre_mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"},
+            labels={"nombre_mes": "Mes", "total_sismos": "Frecuencia", "año_str": "Año"},
             height=500
         )
         fig_linea.update_layout(
@@ -174,15 +183,15 @@ if os.path.exists(db_path):
 
         st.divider()
 
-        # Fila 2: Magnitud Promedio por Mes
+        # Fila 2: Magnitud Promedio por Mes (Agrupadas lado a lado)
         fig_barras = px.bar(
             df_resumen_mes_fil,
             x="nombre_mes",
             y="magnitud_promedio",
-            color="año" if len(df_filtrado['año'].unique()) > 1 else None,
+            color="año_str" if len(df_filtrado['año'].unique()) > 1 else None,
             barmode="group",
             title="Magnitud Promedio por Mes",
-            labels={"nombre_mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"},
+            labels={"nombre_mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año_str": "Año"},
             height=500
         )
         fig_barras.update_layout(
