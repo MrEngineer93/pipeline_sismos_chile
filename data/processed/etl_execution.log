@@ -1,0 +1,9 @@
+2026-09-09 13:05:00,905 [INFO] === INICIO DE EJECUCIÓN DEL PIPELINE ETL ===
+2026-09-09 13:05:00,906 [INFO] 1. Extrayendo datos desde el CSV...
+2026-09-09 13:05:00,911 [INFO]    [Ingesta] Total de registros leídos desde el CSV: 4018
+2026-09-09 13:05:00,911 [INFO] 2. Estandarizando, limpiando y enriqueciendo variables...
+2026-09-09 13:05:00,912 [INFO]    [Calidad de Datos] Registros con nulos descartados: 0
+2026-09-09 13:05:00,913 [INFO]    [Calidad de Datos] Registros limpios para procesamiento: 4018
+2026-09-09 13:05:00,921 [INFO] 3. Cargando datos en el Repositorio Analítico (SQLite)...
+2026-09-09 13:05:00,941 [INFO]    [Idempotencia] Carga ejecutada con 'if_exists=replace'. Tabla 'sismos' actualizada sin duplicados.
+2026-09-09 13:05:00,941 [INFO] === ETL COMPLETADO EXITOSAMENTE CON CUMPLIMIENTO DE IDEMPOTENCIA Y CALIDAD DE DATOS ===
