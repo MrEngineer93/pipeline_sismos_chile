@@ -43,22 +43,13 @@ if os.path.exists(db_path):
         step=1
     )
 
-    # 3. Filtro de Región (Ordenado por número de región de Norte a Sur)
+    # 3. Filtro de Región (Ordenado de Norte a Sur)
     regiones_ordenadas = sorted(
         list(df_sismos['region'].unique()),
         key=lambda x: int(x.split(".-")[0]) if ".-" in x else 99
     )
     regiones_disponibles = ["Todas"] + regiones_ordenadas
     region_sel = st.sidebar.selectbox("Filtrar por Región:", regiones_disponibles)
-
-    # --- CONSTRUCCIÓN DINÁMICA DEL TÍTULO Y SUBTÍTULO ---
-    if rango_anio[0] == rango_anio[1]:
-        texto_anios = f"({rango_anio[0]})"
-    else:
-        texto_anios = f"({rango_anio[0]} - {rango_anio[1]})"
-
-    st.title(f"🌋 Dashboard Analítico de Sismología en Chile {texto_anios}")
-    st.markdown("Solución conectada al repositorio analítico **SQLite** construida desde la canalización ETL.")
 
     # --- FILTRADO DE DATOS ---
     df_filtrado = df_sismos[
@@ -70,6 +61,23 @@ if os.path.exists(db_path):
     
     if region_sel != "Todas":
         df_filtrado = df_filtrado[df_filtrado['region'] == region_sel]
+
+    # --- ENCABEZADO Y CONTEXTO DINÁMICO ---
+    if rango_anio[0] == rango_anio[1]:
+        texto_anios = f"({rango_anio[0]})"
+    else:
+        texto_anios = f"({rango_anio[0]} - {rango_anio[1]})"
+
+    st.title(f"🌋 Dashboard Analítico de Sismología en Chile {texto_anios}")
+    
+    # Bajada informativa con filtros activos
+    st.caption(
+        f"📍 **Región:** {region_sel} | "
+        f"⚡ **Magnitud:** {rango_magnitud[0]:.1f} - {rango_magnitud[1]:.1f} Richter | "
+        f"💾 **Fuente:** Repositorio SQLite"
+    )
+
+    st.markdown("---")
 
     # --- INDICADORES CLAVE ---
     col1, col2, col3, col4 = st.columns(4)
@@ -128,7 +136,6 @@ if os.path.exists(db_path):
             magnitud_promedio=('magnitude', 'mean')
         ).reset_index()
 
-        # Mapeo numérico a nombres de meses abreviados
         nombres_meses = {
             1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 
             5: "May", 6: "Jun", 7: "Jul", 8: "Ago", 
