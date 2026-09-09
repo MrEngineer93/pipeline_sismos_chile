@@ -20,11 +20,10 @@ def cargar_datos(query):
 
 if os.path.exists(db_path):
     df_sismos = cargar_datos("SELECT * FROM sismos")
-    df_resumen_mes = cargar_datos("SELECT * FROM vista_resumen_mensual")
-    df_resumen_reg = cargar_datos("SELECT * FROM vista_resumen_regional")
 
     st.sidebar.header("Filtros de Análisis")
     
+    # 1. Filtro de Magnitud
     min_mag = float(df_sismos['magnitude'].min())
     max_mag = float(df_sismos['magnitude'].max())
     rango_magnitud = st.sidebar.slider(
@@ -35,14 +34,29 @@ if os.path.exists(db_path):
         step=0.1
     )
 
-    regiones_disponibles = ["Todas"] + list(df_sismos['region'].unique())
+    # 2. Filtro de Rango de Años
+    min_anio = int(df_sismos['año'].min())
+    max_anio = int(df_sismos['año'].max())
+    rango_anio = st.sidebar.slider(
+        "Rango de Años:",
+        min_value=min_anio,
+        max_value=max_anio,
+        value=(min_anio, max_anio),
+        step=1
+    )
+
+    # 3. Filtro de Región
+    regiones_disponibles = ["Todas"] + sorted(list(df_sismos['region'].unique()))
     region_sel = st.sidebar.selectbox("Filtrar por Región:", regiones_disponibles)
 
-    # Filtrado dinámico
+    # Aplicar filtrado dinámico combinado
     df_filtrado = df_sismos[
         (df_sismos['magnitude'] >= rango_magnitud[0]) & 
-        (df_sismos['magnitude'] <= rango_magnitud[1])
+        (df_sismos['magnitude'] <= rango_magnitud[1]) &
+        (df_sismos['año'] >= rango_anio[0]) & 
+        (df_sismos['año'] <= rango_anio[1])
     ]
+    
     if region_sel != "Todas":
         df_filtrado = df_filtrado[df_filtrado['region'] == region_sel]
 
@@ -74,9 +88,17 @@ if os.path.exists(db_path):
         st.plotly_chart(fig_mapa, use_container_width=True)
 
     with tab2:
-        st.subheader("Concentración de Sismos por Región (Vista SQL)")
+        st.subheader("Concentración de Sismos por Región")
+        
+        # Agregación dinámica basada en los datos filtrados
+        df_resumen_reg_fil = df_filtrado.groupby("region").agg(
+            total_sismos=('magnitude', 'count'),
+            magnitud_promedio=('magnitude', 'mean'),
+            magnitud_maxima=('magnitude', 'max')
+        ).reset_index().sort_values(by="total_sismos", ascending=True)
+
         fig_region = px.bar(
-            df_resumen_reg,
+            df_resumen_reg_fil,
             x="total_sismos",
             y="region",
             orientation="h",
@@ -85,31 +107,39 @@ if os.path.exists(db_path):
             title="Total de Eventos Registrados por Zonas/Regiones",
             labels={"total_sismos": "Frecuencia de Sismos", "region": "Región / Zona"}
         )
-        fig_region.update_layout(yaxis={'categoryorder': 'total ascending'})
         st.plotly_chart(fig_region, use_container_width=True)
 
     with tab3:
         st.subheader("Evolución Temporal Consolidada")
         col_g1, col_g2 = st.columns(2)
 
+        # Agregación mensual dinámica según filtros seleccionados
+        df_resumen_mes_fil = df_filtrado.groupby(["año", "mes"]).agg(
+            total_sismos=('magnitude', 'count'),
+            magnitud_promedio=('magnitude', 'mean')
+        ).reset_index()
+
         with col_g1:
             fig_linea = px.line(
-                df_resumen_mes,
+                df_resumen_mes_fil,
                 x="mes",
                 y="total_sismos",
+                color="año" if len(df_filtrado['año'].unique()) > 1 else None,
                 markers=True,
                 title="Cantidad Total de Sismos por Mes",
-                labels={"mes": "Mes", "total_sismos": "Frecuencia"}
+                labels={"mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"}
             )
             st.plotly_chart(fig_linea, use_container_width=True)
 
         with col_g2:
             fig_barras = px.bar(
-                df_resumen_mes,
+                df_resumen_mes_fil,
                 x="mes",
                 y="magnitud_promedio",
+                color="año" if len(df_filtrado['año'].unique()) > 1 else None,
+                barmode="group",
                 title="Magnitud Promedio por Mes",
-                labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio"}
+                labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"}
             )
             st.plotly_chart(fig_barras, use_container_width=True)
 
