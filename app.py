@@ -4,7 +4,7 @@ import sqlite3
 import plotly.express as px
 import os
 
-st.set_page_config(page_title="Dashboard de Sismos Chile 2026", layout="wide")
+st.set_page_config(page_title="Dashboard de Sismos Chile", layout="wide")
 
 st.title("🌋 Dashboard Analítico de Sismología en Chile")
 st.markdown("Solución conectada al repositorio analítico **SQLite** construida desde la canalización ETL.")
@@ -90,7 +90,6 @@ if os.path.exists(db_path):
     with tab2:
         st.subheader("Concentración de Sismos por Región")
         
-        # Agregación dinámica basada en los datos filtrados
         df_resumen_reg_fil = df_filtrado.groupby("region").agg(
             total_sismos=('magnitude', 'count'),
             magnitud_promedio=('magnitude', 'mean'),
@@ -113,7 +112,6 @@ if os.path.exists(db_path):
         st.subheader("Evolución Temporal Consolidada")
         col_g1, col_g2 = st.columns(2)
 
-        # Agregación mensual dinámica según filtros seleccionados
         df_resumen_mes_fil = df_filtrado.groupby(["año", "mes"]).agg(
             total_sismos=('magnitude', 'count'),
             magnitud_promedio=('magnitude', 'mean')
