@@ -24,14 +24,7 @@ logging.basicConfig(
     ]
 )
 
-def asignar_region(row):
-    lat = row['latitude']
-    lon = row['longitude']
-    
-    # Descartar eventos lejanos en Bolivia/Argentina
-    if lon > -68.5 and lat >= -23.0:
-        return "Fuera de Territorio"
-    
+def asignar_region(lat):
     if lat >= -18.5: return "1.- Arica y Parinacota"
     elif lat >= -21.5: return "2.- Tarapacá"
     elif lat >= -26.0: return "3.- Antofagasta"
@@ -60,6 +53,8 @@ def ejecutar_etl():
         raise FileNotFoundError(err_msg)
 
     df_raw = pd.read_csv(raw_path)
+    total_inicial = len(df_raw)
+    logging.info(f"   [Ingesta] Registros iniciales leídos: {total_inicial}")
 
     logging.info("2. [Transformación] Estandarizando variables y aplicando controles de calidad...")
     renombres = {
@@ -73,28 +68,33 @@ def ejecutar_etl():
 
     # Controles de Calidad
     columnas_clave = ['latitude', 'longitude', 'magnitude', 'depth', 'datetime']
+    nulos = df_clean[columnas_clave].isnull().sum().sum()
     df_clean = df_clean.dropna(subset=columnas_clave)
+    
+    duplicados = df_clean.duplicated(subset=columnas_clave).sum()
     df_clean = df_clean.drop_duplicates(subset=columnas_clave)
+
+    # Filtrado por rangos válidos
     df_clean = df_clean[
         (df_clean['latitude'].between(-57.0, -17.0)) &
         (df_clean['longitude'].between(-80.0, -60.0)) &
         (df_clean['magnitude'].between(0.0, 10.0)) &
         (df_clean['depth'] >= 0.0)
     ]
+    total_final = len(df_clean)
+    descartados = total_inicial - total_final
 
-    # Asignar región considerando latitud y longitud
-    df_clean['region'] = df_clean.apply(asignar_region, axis=1)
-    
-    # Excluir registros que hayan quedado fuera del territorio nacional
-    df_clean = df_clean[df_clean['region'] != "Fuera de Territorio"]
+    logging.info(f"   [Calidad de Datos] Nulos eliminados: {nulos}")
+    logging.info(f"   [Calidad de Datos] Duplicados eliminados: {duplicados}")
+    logging.info(f"   [Calidad de Datos] Registros totales descartados: {descartados}")
+    logging.info(f"   [Calidad de Datos] Registros válidos procesados: {total_final}")
 
-    # Mantenimiento de fechas históricas
+    # Mantenimiento de fechas e Ingeniería de Características
     df_clean['datetime'] = pd.to_datetime(df_clean['datetime'])
-
-    # Ingeniería de Características
     df_clean['año'] = df_clean['datetime'].dt.year
     df_clean['mes'] = df_clean['datetime'].dt.month
     df_clean['fecha_corta'] = df_clean['datetime'].dt.strftime('%Y-%m-%d')
+    df_clean['region'] = df_clean['latitude'].apply(asignar_region)
 
     db_filename = "sismos_analitico.db"
     db_path = os.path.join("data", "processed", db_filename)
@@ -102,6 +102,7 @@ def ejecutar_etl():
     
     conn = sqlite3.connect(db_path)
     df_clean.to_sql("sismos", conn, if_exists="replace", index=False)
+    logging.info(f"   [Carga - Idempotencia] Tabla 'sismos' actualizada en '{db_filename}' con reescritura segura ('if_exists=replace').")
 
     conn.execute("""
     CREATE VIEW IF NOT EXISTS vista_resumen_mensual AS
@@ -118,7 +119,7 @@ def ejecutar_etl():
     conn.commit()
     conn.close()
     
-    logging.info("=== ETL COMPLETADO CON ÉXITO ===")
+    logging.info("=== ETL COMPLETADO CON ÉXITO: Base de datos 'sismos_analitico.db' y archivo de auditoría actualizados. ===")
     logging.info("==========================================================\n")
 
 if __name__ == "__main__":
