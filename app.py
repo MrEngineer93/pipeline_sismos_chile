@@ -134,7 +134,16 @@ if os.path.exists(db_path):
             markers=True,
             title="Cantidad Total de Sismos por Mes",
             labels={"mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"},
-            height=420
+            height=500
+        )
+        fig_linea.update_layout(
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5
+            )
         )
         st.plotly_chart(fig_linea, use_container_width=True)
 
@@ -149,7 +158,16 @@ if os.path.exists(db_path):
             barmode="group",
             title="Magnitud Promedio por Mes",
             labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"},
-            height=420
+            height=500
+        )
+        fig_barras.update_layout(
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5
+            )
         )
         st.plotly_chart(fig_barras, use_container_width=True)
 
