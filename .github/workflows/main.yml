@@ -3,7 +3,7 @@ name: Automatizacion del ETL de Sismos
 on:
   schedule:
     - cron: '0 6 * * *' # Se ejecuta automáticamente todos los días a las 06:00 UTC
-  workflow_dispatch:   # Permite que tú lo actives manualmente con un botón desde la web
+  workflow_dispatch:   # Permite activarlo manualmente desde la web de GitHub
 
 jobs:
   run-etl:
@@ -20,20 +20,20 @@ jobs:
       with:
         python-version: '3.10'
 
-    # 3. Instalar las librerías necesarias de tu proyecto
+    # 3. Instalar las librerías necesarias
     - name: Instalar dependencias
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # 4. Ejecutar tu pipeline de datos para extraer los sismos
+    # 4. Ejecutar el pipeline ETL (Genera sismos_analitico.db y etl_execution.log)
     - name: Ejecutar Pipeline ETL
       run: python src/etl.py
 
-    # 5. Subir la base de datos .db actualizada de regreso a tu GitHub
-    - name: Guardar cambios en el repositorio
+    # 5. Guardar la base de datos y el archivo de log en el repositorio
+    - name: Guardar cambios y logs en el repositorio
       run: |
         git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@://github.com'
-        git add .
-        git diff --quiet && git diff --staged --quiet || (git commit -m "🔄 ETL Automatizado: Base de datos sismológica actualizada" && git push)
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add data/processed/sismos_analitico.db data/processed/etl_execution.log
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🔄 ETL Automatizado: Base de datos y logs de auditoría actualizados" && git push)
