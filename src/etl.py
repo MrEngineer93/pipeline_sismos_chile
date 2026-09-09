@@ -3,7 +3,7 @@ import sqlite3
 import os
 import logging
 
-# Configuración de Logging para guardar en archivo y mostrar en consola
+# Configuración de Logging con formato de marca de tiempo (Fecha y Hora)
 log_dir = os.path.join("data", "processed")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "etl_execution.log")
@@ -11,8 +11,9 @@ log_file = os.path.join(log_dir, "etl_execution.log")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
+        logging.FileHandler(log_file, mode='a', encoding="utf-8"), # 'a' acumula registros con marca de tiempo
         logging.StreamHandler()
     ]
 )
@@ -33,10 +34,13 @@ def asignar_region(lat):
     else: return "Magallanes y Antártica"
 
 def ejecutar_etl():
+    logging.info("==========================================================")
     logging.info("=== INICIO DE EJECUCIÓN DEL PIPELINE ETL ===")
-    logging.info("1. Extrayendo datos desde el CSV...")
     
-    raw_path = os.path.join("data", "raw", "earthquakes_chile.csv")
+    # 1. INGESTA
+    csv_filename = "earthquakes_chile.csv"
+    raw_path = os.path.join("data", "raw", csv_filename)
+    logging.info(f"1. [Ingesta] Extrayendo datos desde el archivo de origen: '{raw_path}'")
     
     if not os.path.exists(raw_path):
         err_msg = f"No se encontró el archivo de origen: {raw_path}"
@@ -45,9 +49,10 @@ def ejecutar_etl():
 
     df_raw = pd.read_csv(raw_path)
     total_inicial = len(df_raw)
-    logging.info(f"   [Ingesta] Total de registros leídos desde el CSV: {total_inicial}")
+    logging.info(f"   [Ingesta] Archivo '{csv_filename}' cargado exitosamente con {total_inicial} registros iniciales.")
 
-    logging.info("2. Estandarizando, limpiando y enriqueciendo variables...")
+    # 2. TRANSFORMACIÓN Y CALIDAD DE DATOS
+    logging.info("2. [Transformación] Estandarizando variables y aplicando controles de calidad...")
     renombres = {
         'Date(UTC)': 'datetime',
         'Latitude': 'latitude',
@@ -57,14 +62,33 @@ def ejecutar_etl():
     }
     df_clean = df_raw.rename(columns=renombres).copy()
 
-    # Métrica y métricas de calidad de datos
+    # Control de Calidad 1: Detección y eliminación de nulos
     columnas_clave = ['latitude', 'longitude', 'magnitude', 'depth', 'datetime']
     df_clean = df_clean.dropna(subset=columnas_clave)
-    total_limpio = len(df_clean)
-    registros_descartados = total_inicial - total_limpio
+    descartados_nulos = total_inicial - len(df_clean)
+    logging.info(f"   [Calidad - Nulos] Registros descartados por valores nulos en variables clave: {descartados_nulos}")
 
-    logging.info(f"   [Calidad de Datos] Registros con nulos descartados: {registros_descartados}")
-    logging.info(f"   [Calidad de Datos] Registros limpios para procesamiento: {total_limpio}")
+    # Control de Calidad 2: Eliminación de registros duplicados
+    filas_antes_duplicados = len(df_clean)
+    df_clean = df_clean.drop_duplicates(subset=columnas_clave)
+    descartados_duplicados = filas_antes_duplicados - len(df_clean)
+    logging.info(f"   [Calidad - Duplicados] Registros duplicados eliminados: {descartados_duplicados}")
+
+    # Control de Calidad 3: Validaciones de rango geográfico y físico (Reglas de Negocio)
+    # Coordenadas válidas para Chile aproximadamente: Latitud [-56, -17], Longitud [-76, -66]
+    # Magnitudes plausibles [0, 10], Profundidades positivas [0, 800]
+    filas_antes_rangos = len(df_clean)
+    df_clean = df_clean[
+        (df_clean['latitude'].between(-57.0, -17.0)) &
+        (df_clean['longitude'].between(-80.0, -60.0)) &
+        (df_clean['magnitude'].between(0.0, 10.0)) &
+        (df_clean['depth'] >= 0.0)
+    ]
+    descartados_outliers = filas_antes_rangos - len(df_clean)
+    logging.info(f"   [Calidad - Rangos] Registros fuera de rango válido o anomalías descartadas: {descartados_outliers}")
+
+    total_limpio = len(df_clean)
+    logging.info(f"   [Calidad - Resumen] Total de registros aprobados y limpios para procesamiento: {total_limpio} (de {total_inicial} originales)")
 
     # Conversión temporal y simulación a 2026
     df_clean['datetime'] = pd.to_datetime(df_clean['datetime'])
@@ -78,16 +102,18 @@ def ejecutar_etl():
     df_clean['fecha_corta'] = df_clean['datetime'].dt.strftime('%Y-%m-%d')
     df_clean['region'] = df_clean['latitude'].apply(asignar_region)
 
-    logging.info("3. Cargando datos en el Repositorio Analítico (SQLite)...")
-    db_path = os.path.join("data", "processed", "sismos_analitico.db")
+    # 3. CARGA DE DATOS
+    db_filename = "sismos_analitico.db"
+    db_path = os.path.join("data", "processed", db_filename)
+    logging.info(f"3. [Carga] Exportando repositorio analítico hacia: '{db_path}'")
     
     conn = sqlite3.connect(db_path)
     
-    # Carga idempotente mediante reescritura de tabla
+    # Carga idempotente (if_exists="replace")
     df_clean.to_sql("sismos", conn, if_exists="replace", index=False)
-    logging.info("   [Idempotencia] Carga ejecutada con 'if_exists=replace'. Tabla 'sismos' actualizada sin duplicados.")
+    logging.info(f"   [Carga - Idempotencia] Tabla 'sismos' actualizada en '{db_filename}' con reescritura segura ('if_exists=replace').")
 
-    # Vistas SQL
+    # Creación de vistas SQL
     conn.execute("""
     CREATE VIEW IF NOT EXISTS vista_resumen_mensual AS
     SELECT 
@@ -116,7 +142,8 @@ def ejecutar_etl():
     conn.commit()
     conn.close()
     
-    logging.info("=== ETL COMPLETADO EXITOSAMENTE CON CUMPLIMIENTO DE IDEMPOTENCIA Y CALIDAD DE DATOS ===")
+    logging.info(f"=== ETL COMPLETADO CON ÉXITO: Base de datos '{db_filename}' y archivo de auditoría actualizados. ===")
+    logging.info("==========================================================\n")
 
 if __name__ == "__main__":
     ejecutar_etl()
