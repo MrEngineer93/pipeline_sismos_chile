@@ -137,12 +137,14 @@ if os.path.exists(db_path):
             height=500
         )
         fig_linea.update_layout(
+            margin=dict(t=60, b=100),
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=1.02,
+                yanchor="top",
+                y=-0.25,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                title_text=""
             )
         )
         st.plotly_chart(fig_linea, use_container_width=True)
@@ -161,12 +163,14 @@ if os.path.exists(db_path):
             height=500
         )
         fig_barras.update_layout(
+            margin=dict(t=60, b=100),
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=1.02,
+                yanchor="top",
+                y=-0.25,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                title_text=""
             )
         )
         st.plotly_chart(fig_barras, use_container_width=True)
