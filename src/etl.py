@@ -24,7 +24,14 @@ logging.basicConfig(
     ]
 )
 
-def asignar_region(lat):
+def asignar_region(row):
+    lat = row['latitude']
+    lon = row['longitude']
+    
+    # Descartar eventos lejanos en Bolivia/Argentina
+    if lon > -68.5 and lat >= -23.0:
+        return "Fuera de Territorio"
+    
     if lat >= -18.5: return "1.- Arica y Parinacota"
     elif lat >= -21.5: return "2.- Tarapacá"
     elif lat >= -26.0: return "3.- Antofagasta"
@@ -53,7 +60,6 @@ def ejecutar_etl():
         raise FileNotFoundError(err_msg)
 
     df_raw = pd.read_csv(raw_path)
-    total_inicial = len(df_raw)
 
     logging.info("2. [Transformación] Estandarizando variables y aplicando controles de calidad...")
     renombres = {
@@ -76,14 +82,19 @@ def ejecutar_etl():
         (df_clean['depth'] >= 0.0)
     ]
 
-    # Mantenimiento de fechas históricas reales
+    # Asignar región considerando latitud y longitud
+    df_clean['region'] = df_clean.apply(asignar_region, axis=1)
+    
+    # Excluir registros que hayan quedado fuera del territorio nacional
+    df_clean = df_clean[df_clean['region'] != "Fuera de Territorio"]
+
+    # Mantenimiento de fechas históricas
     df_clean['datetime'] = pd.to_datetime(df_clean['datetime'])
 
     # Ingeniería de Características
     df_clean['año'] = df_clean['datetime'].dt.year
     df_clean['mes'] = df_clean['datetime'].dt.month
     df_clean['fecha_corta'] = df_clean['datetime'].dt.strftime('%Y-%m-%d')
-    df_clean['region'] = df_clean['latitude'].apply(asignar_region)
 
     db_filename = "sismos_analitico.db"
     db_path = os.path.join("data", "processed", db_filename)
