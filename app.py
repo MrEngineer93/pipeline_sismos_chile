@@ -125,19 +125,32 @@ if os.path.exists(db_path):
             magnitud_promedio=('magnitude', 'mean')
         ).reset_index()
 
+        # Mapeo numérico a nombres de meses abreviados
+        nombres_meses = {
+            1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 
+            5: "May", 6: "Jun", 7: "Jul", 8: "Ago", 
+            9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic"
+        }
+        df_resumen_mes_fil["nombre_mes"] = df_resumen_mes_fil["mes"].map(nombres_meses)
+
         # Fila 1: Cantidad Total de Sismos por Mes
         fig_linea = px.line(
             df_resumen_mes_fil,
-            x="mes",
+            x="nombre_mes",
             y="total_sismos",
             color="año" if len(df_filtrado['año'].unique()) > 1 else None,
             markers=True,
             title="Cantidad Total de Sismos por Mes",
-            labels={"mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"},
+            labels={"nombre_mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"},
             height=500
         )
         fig_linea.update_layout(
             margin=dict(t=60, b=100),
+            xaxis=dict(
+                type='category',
+                categoryorder='array',
+                categoryarray=list(nombres_meses.values())
+            ),
             legend=dict(
                 orientation="h",
                 yanchor="top",
@@ -154,16 +167,21 @@ if os.path.exists(db_path):
         # Fila 2: Magnitud Promedio por Mes
         fig_barras = px.bar(
             df_resumen_mes_fil,
-            x="mes",
+            x="nombre_mes",
             y="magnitud_promedio",
             color="año" if len(df_filtrado['año'].unique()) > 1 else None,
             barmode="group",
             title="Magnitud Promedio por Mes",
-            labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"},
+            labels={"nombre_mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"},
             height=500
         )
         fig_barras.update_layout(
             margin=dict(t=60, b=100),
+            xaxis=dict(
+                type='category',
+                categoryorder='array',
+                categoryarray=list(nombres_meses.values())
+            ),
             legend=dict(
                 orientation="h",
                 yanchor="top",
