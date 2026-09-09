@@ -119,36 +119,39 @@ if os.path.exists(db_path):
 
     with tab3:
         st.subheader("Evolución Temporal Consolidada")
-        col_g1, col_g2 = st.columns(2)
 
         df_resumen_mes_fil = df_filtrado.groupby(["año", "mes"]).agg(
             total_sismos=('magnitude', 'count'),
             magnitud_promedio=('magnitude', 'mean')
         ).reset_index()
 
-        with col_g1:
-            fig_linea = px.line(
-                df_resumen_mes_fil,
-                x="mes",
-                y="total_sismos",
-                color="año" if len(df_filtrado['año'].unique()) > 1 else None,
-                markers=True,
-                title="Cantidad Total de Sismos por Mes",
-                labels={"mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"}
-            )
-            st.plotly_chart(fig_linea, use_container_width=True)
+        # Fila 1: Cantidad Total de Sismos por Mes
+        fig_linea = px.line(
+            df_resumen_mes_fil,
+            x="mes",
+            y="total_sismos",
+            color="año" if len(df_filtrado['año'].unique()) > 1 else None,
+            markers=True,
+            title="Cantidad Total de Sismos por Mes",
+            labels={"mes": "Mes", "total_sismos": "Frecuencia", "año": "Año"},
+            height=420
+        )
+        st.plotly_chart(fig_linea, use_container_width=True)
 
-        with col_g2:
-            fig_barras = px.bar(
-                df_resumen_mes_fil,
-                x="mes",
-                y="magnitud_promedio",
-                color="año" if len(df_filtrado['año'].unique()) > 1 else None,
-                barmode="group",
-                title="Magnitud Promedio por Mes",
-                labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"}
-            )
-            st.plotly_chart(fig_barras, use_container_width=True)
+        st.divider()
+
+        # Fila 2: Magnitud Promedio por Mes
+        fig_barras = px.bar(
+            df_resumen_mes_fil,
+            x="mes",
+            y="magnitud_promedio",
+            color="año" if len(df_filtrado['año'].unique()) > 1 else None,
+            barmode="group",
+            title="Magnitud Promedio por Mes",
+            labels={"mes": "Mes", "magnitud_promedio": "Magnitud Promedio", "año": "Año"},
+            height=420
+        )
+        st.plotly_chart(fig_barras, use_container_width=True)
 
 else:
     st.error("No se ha encontrado la base de datos analítica. Ejecuta primero `python src/etl.py`.")
