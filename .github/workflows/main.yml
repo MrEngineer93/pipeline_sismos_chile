@@ -39,3 +39,5 @@ jobs:
         git add data/processed/sismos_analitico.db data/processed/etl_execution.log
         git commit -m "Actualizar base de datos y logs"
         git push origin main
+
+
