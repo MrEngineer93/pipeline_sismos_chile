@@ -40,3 +40,17 @@
 2026-09-09 21:07:44 [INFO] === ETL COMPLETADO CON ÉXITO: Base de datos 'sismos_analitico.db' y archivo de auditoría actualizados. ===
 2026-09-09 21:07:44 [INFO] ==========================================================
 
+2026-09-09 22:57:02 [INFO] ==========================================================
+2026-09-09 22:57:02 [INFO] === INICIO DE EJECUCIÓN DEL PIPELINE ETL ===
+2026-09-09 22:57:02 [INFO] 1. [Ingesta] Extrayendo datos desde: 'data/raw/earthquakes_chile.csv'
+2026-09-09 22:57:02 [INFO]    [Ingesta] Registros iniciales leídos: 4018
+2026-09-09 22:57:02 [INFO] 2. [Transformación] Estandarizando variables y aplicando controles de calidad...
+2026-09-09 22:57:02 [INFO]    [Calidad de Datos] Nulos eliminados: 0
+2026-09-09 22:57:02 [INFO]    [Calidad de Datos] Duplicados eliminados: 3
+2026-09-09 22:57:02 [INFO]    [Calidad de Datos] Registros totales descartados: 17
+2026-09-09 22:57:02 [INFO]    [Calidad de Datos] Registros válidos procesados: 4001
+2026-09-09 22:57:02 [INFO] 3. [Carga] Exportando repositorio analítico hacia: 'data/processed/sismos_analitico.db'
+2026-09-09 22:57:02 [INFO]    [Carga - Idempotencia] Tabla 'sismos' actualizada en 'sismos_analitico.db' con reescritura segura ('if_exists=replace').
+2026-09-09 22:57:02 [INFO] === ETL COMPLETADO CON ÉXITO: Base de datos 'sismos_analitico.db' y archivo de auditoría actualizados. ===
+2026-09-09 22:57:02 [INFO] ==========================================================
+
