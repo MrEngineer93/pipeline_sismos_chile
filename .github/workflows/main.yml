@@ -35,5 +35,7 @@ jobs:
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
         git add data/processed/sismos_analitico.db data/processed/etl_execution.log
-        git diff --quiet && git diff --staged --quiet || (git commit -m "🔄 ETL Automatizado: Base de datos y logs de auditoría actualizados" && git push)
+        git commit -m "Actualizar base de datos y logs"
+        git push origin main
